@@ -308,3 +308,14 @@ async def test_legacy_scheduler_start_cycle_keeps_working_without_request_id() -
 
     await scheduler.start_cycle("heat", 0.5)
     await scheduler.start_cycle("heat", 0.5, force=True)
+
+
+def test_legacy_feature_manager_implements_no_underlying_hook() -> None:
+    manager = LegacyFeatureManager()
+    assert isinstance(manager, InterfaceFeatureManager)
+    assert not isinstance(manager, vtherm_api.InterfaceUnderlyingHvacModeHook)
+    assert not isinstance(manager, vtherm_api.InterfaceValveCommandHook)
+    assert not isinstance(manager, vtherm_api.InterfaceUnderlyingPowerHook)
+    assert not hasattr(manager, "async_before_underlying_hvac_mode")
+    assert not hasattr(manager, "async_after_valve_command")
+    assert not hasattr(manager, "async_on_underlying_power")
