@@ -236,7 +236,7 @@ The core calls the method only while `is_configured` is `True`, after the self-r
 A feature manager can follow the commands the core sends to the underlyings by implementing one or more optional hooks. The hooks are notifications: they never change or cancel the command. Each one is a coroutine, so implement only the ones you need:
 
 ```python
-from vtherm_api import UnderlyingPowerCommand, ValveCommand, ValveCommandCause
+from vtherm_api import UnderlyingPowerCommand, ValveCommand
 
 
 class QuirkFeatureManager(MyFeatureManager):
