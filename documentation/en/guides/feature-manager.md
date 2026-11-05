@@ -251,8 +251,10 @@ class QuirkFeatureManager(MyFeatureManager):
         ...
 
     async def async_after_valve_command(self, command: ValveCommand) -> None:
-        # Called after the opening and closing degrees have been sent
-        if command.cause is ValveCommandCause.TURN_OFF:
+        # Called after the opening and closing degrees have been sent.
+        # When the thermostat goes OFF, the valve is closed after the OFF mode,
+        # with cause REGULATION and hvac_mode "off".
+        if command.hvac_mode == "off":
             ...
 
     async def async_on_underlying_power(self, command: UnderlyingPowerCommand) -> None:

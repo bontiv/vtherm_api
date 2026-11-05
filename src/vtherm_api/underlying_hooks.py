@@ -37,9 +37,13 @@ Common rules:
   climate, while this one is still in ``current_hvac_mode``.
 * ``command_cause`` is ``None`` for a regular command and
   ``"underlying_tracking"`` when the VTherm copies a change made on the device.
-* For an ``over_climate`` with direct valve control going OFF, the valve has
-  already received its closing command (``ValveCommandCause.TURN_OFF``) when
-  this hook is called.
+* For an ``over_climate`` with direct valve control going OFF, this hook is
+  called before the OFF mode is sent, while the climate is still in
+  ``current_hvac_mode``. The valve is closed afterwards, by the regulation,
+  with a :class:`ValveCommand` whose ``cause`` is ``REGULATION`` and whose
+  ``hvac_mode`` is ``"off"``. A plugin that needs to act before OFF must do it
+  in this hook. To know that the thermostat is off, use ``command.hvac_mode``
+  and not the Home Assistant state of the climate, which can still be on.
 
 ``async_after_valve_command``:
 
@@ -80,7 +84,8 @@ class ValveCommandCause(StrEnum):
     """Command computed by the regulation cycle (TPI or algorithm plugin)."""
 
     TURN_OFF = "turn_off"
-    """Valve closed because the thermostat or the underlying goes OFF."""
+    """Valve closed because an underlying is turned off directly, or because an
+    inhibition stops."""
 
     STARTUP = "startup"
     """Command sent by the initial state check of the underlying."""
