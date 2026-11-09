@@ -17,6 +17,7 @@ from .interfaces import (
     InterfaceThermostatRuntime,
     ValveDiagnosticState,
 )
+from .const import UNDERLYING_HOOK_TIMEOUT_SEC
 from .inhibition import InhibitionNotStartedError
 from .log_collector import (
     VThermLogEntry,
@@ -28,9 +29,18 @@ from .log_collector import (
 )
 from .plugin_climate import PluginClimate
 from .setpoint_modifier import InterfaceSetpointModifier
+from .underlying_hooks import (
+    InterfaceUnderlyingHvacModeHook,
+    InterfaceUnderlyingPowerHook,
+    InterfaceValveCommandHook,
+    PowerCommandKind,
+    UnderlyingPowerCommand,
+    ValveCommand,
+    ValveCommandCause,
+)
 from .vtherm_api import VThermAPI
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 __all__ = [
     "AppliedCommandReceipt",
@@ -47,6 +57,14 @@ __all__ = [
     "InterfaceSetpointModifier",
     "InterfaceThermostat",
     "InterfaceThermostatRuntime",
+    "InterfaceUnderlyingHvacModeHook",
+    "InterfaceUnderlyingPowerHook",
+    "InterfaceValveCommandHook",
+    "PowerCommandKind",
+    "UNDERLYING_HOOK_TIMEOUT_SEC",
+    "UnderlyingPowerCommand",
+    "ValveCommand",
+    "ValveCommandCause",
     "ValveDiagnosticState",
     "PluginClimate",
     "VThermAPI",

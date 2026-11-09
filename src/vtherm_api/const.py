@@ -12,6 +12,9 @@ DOMAIN = "versatile_thermostat"
 VTHERM_API_NAME = "vtherm_api"
 CONF_NAME = "name"
 
+UNDERLYING_HOOK_TIMEOUT_SEC = 10
+"""Seconds after which the core stops waiting for an underlying hook."""
+
 
 class EventType(Enum):
     """The event type that can be sent"""

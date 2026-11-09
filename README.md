@@ -10,6 +10,7 @@ This package currently exposes two main building blocks:
 - A minimal inhibition façade (issue #2087): `await VThermAPI.set_inhibition(vtherm_entity_id, stop_underlyings)` and `await VThermAPI.unset_inhibition(vtherm_entity_id)`. The plugin owns detection, policy, and `ACTIVE` / `INACTIVE` / `UNKNOWN`; the VTherm core owns the inhibition state and command gate. See [the API reference](documentation/en/api-reference.md#inhibition-issue-2087).
 - An optional command-receipt surface: `InterfaceCommandReceiptScheduler` extends `InterfaceCycleScheduler` so that a proportional algorithm plugin can tag a `start_cycle` request with a `request_id` and receive an `AppliedCommandReceipt` describing the command the scheduler really applied. See [the API reference](documentation/en/api-reference.md#command-receipts).
 - An optional regulated-temperature surface: `InterfaceSetpointModifier` lets a feature manager adjust the temperature an `over_climate` thermostat sends to its underlyings. See [the API reference](documentation/en/api-reference.md#regulated-temperature-modifier).
+- Optional underlying-command hooks: `InterfaceUnderlyingHvacModeHook`, `InterfaceValveCommandHook` and `InterfaceUnderlyingPowerHook` let a feature manager follow the HVAC mode, valve and power commands the core sends to the underlyings. See [the API reference](documentation/en/api-reference.md#underlying-hooks).
 
 The package is designed for Home Assistant integration code, not as a standalone HTTP or REST API.
 

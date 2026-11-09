@@ -230,3 +230,40 @@ class RampingFeatureManager(MyFeatureManager):
 ```
 
 The core calls the method only while `is_configured` is `True`, after the self-regulation and before the rounding, the regulation delta filter and the send. See [Regulated temperature modifier](../api-reference.md#regulated-temperature-modifier) for the full contract.
+
+### Following the underlying commands
+
+A feature manager can follow the commands the core sends to the underlyings by implementing one or more optional hooks. The hooks are notifications: they never change or cancel the command. Each one is a coroutine, so implement only the ones you need:
+
+```python
+from vtherm_api import UnderlyingPowerCommand, ValveCommand
+
+
+class QuirkFeatureManager(MyFeatureManager):
+    async def async_before_underlying_hvac_mode(
+        self,
+        climate_entity_id: str,
+        hvac_mode: str,
+        current_hvac_mode: str | None,
+        command_cause: str | None,
+    ) -> None:
+        # Called just before climate.set_hvac_mode is sent to the underlying.
+        # The target mode is the hvac_mode parameter (there is no command object)
+        ...
+
+    async def async_after_valve_command(self, command: ValveCommand) -> None:
+        # Called after the opening and closing degrees have been sent.
+        # When the thermostat goes OFF, the valve is closed after the OFF mode,
+        # with cause REGULATION and hvac_mode "off".
+        if command.hvac_mode == "off":
+            ...
+
+    async def async_on_underlying_power(self, command: UnderlyingPowerCommand) -> None:
+        # Called at cycle start, valve update and cycle stop, for each underlying.
+        # The notification can arrive after the actuation: a switch turns on at
+        # command.cycle_start_monotonic + command.start_offset_sec and off
+        # command.on_time_sec later, so use these timestamps, not the reception time
+        ...
+```
+
+The core calls a hook only while `is_configured` is `True` and only if its own command is really sent. It waits for the hook, so return quickly and run any long treatment (waiting, retry) in a task or with `async_call_later`. After `UNDERLYING_HOOK_TIMEOUT_SEC` seconds the core stops waiting, logs an error and sends its command. See [Underlying hooks](../api-reference.md#underlying-hooks) for the full contract.

@@ -27,7 +27,7 @@ Vous obtiendrez en général un sdist et une wheel dans dist/.
 
 Points spécifiques configurés sur ce dépôt :
 
-- **Version dynamique** : La version source est définie dans [src/vtherm_api/__init__.py](src/vtherm_api/__init__.py) (`__version__ = "0.8.0"`). `pyproject.toml` la lit dynamiquement.
+- **Version dynamique** : La version source est définie dans [src/vtherm_api/__init__.py](src/vtherm_api/__init__.py) (`__version__ = "0.9.0"`). `pyproject.toml` la lit dynamiquement.
 - **Support Python** : `requires-python` est configuré à `>=3.13`.
 - **Métadonnées PyPI** : `project.urls` est renseigné (Repository, Documentation, Bug Tracker).
 - **Dépendances de dev** : `build` et `twine` sont inclus dans `requirements-dev.txt` et `pyproject.toml`.
