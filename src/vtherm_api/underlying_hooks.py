@@ -42,8 +42,10 @@ Common rules:
   ``current_hvac_mode``. The valve is closed afterwards, by the regulation,
   with a :class:`ValveCommand` whose ``cause`` is ``REGULATION`` and whose
   ``hvac_mode`` is ``"off"``. A plugin that needs to act before OFF must do it
-  in this hook. To know that the thermostat is off, use ``command.hvac_mode``
-  and not the Home Assistant state of the climate, which can still be on.
+  in this hook. This hook receives no command object: the target mode is its
+  ``hvac_mode`` parameter (``"off"`` here), to be used instead of the Home
+  Assistant state of the climate, which can still be on. ``command.hvac_mode``
+  only exists on the :class:`ValveCommand` of ``async_after_valve_command``.
 
 ``async_after_valve_command``:
 
@@ -62,9 +64,21 @@ Common rules:
 * ``STOP``: when a running cycle is cancelled (OFF, load shedding, shutdown).
   ``applied_on_percent`` is then 0.
 * The on/off toggles of a switch during the cycle do not trigger a
-  notification: ``on_time_sec``, ``off_time_sec`` and ``start_offset_sec`` are
-  enough to deduce them.
-* The hook is called after the cycle start has been actuated.
+  notification: a manager deduces them from ``cycle_start_monotonic``,
+  ``start_offset_sec`` and ``on_time_sec`` (see below).
+* The hook is called after the cycle start has been actuated, and the core
+  awaits the managers one after the other, so a notification can reach a
+  manager several seconds after the actuation. A manager must therefore use
+  the timestamps of the command and never its reception time.
+* ``cycle_start_monotonic`` is ``time.monotonic()`` at the start of the master
+  cycle the command belongs to. It is ``None`` when no cycle is running: for
+  a ``STOP`` (the cycle is over) and for an ``UPDATE`` emitted outside a cycle.
+  ``monotonic`` is ``time.monotonic()`` when the notification is built.
+* A switch turns on at ``cycle_start_monotonic + start_offset_sec`` and turns
+  off ``on_time_sec`` later. The cycle is circular: when
+  ``start_offset_sec + on_time_sec`` exceeds ``cycle_duration_sec``, the off
+  time wraps to the beginning of the cycle. These times are nominal: the
+  minimal activation and deactivation delays of the core can shift a toggle.
 * This hook is distinct from :class:`AppliedCommandReceipt`: the receipt is for
   the algorithm plugin and describes the whole thermostat, this hook is for
   feature managers and describes each underlying.
@@ -142,6 +156,16 @@ class UnderlyingPowerCommand:
     start_offset_sec: float | None
     """Offset of this underlying in the cycle (switch only), None for a valve."""
     is_repeat: bool
+    cycle_start_monotonic: float | None
+    """``time.monotonic()`` at the start of the master cycle the command belongs to.
+
+    None when no cycle is running: for ``STOP`` and for an ``UPDATE`` emitted
+    outside a cycle. A switch turns on at ``cycle_start_monotonic +
+    start_offset_sec`` and off ``on_time_sec`` later (wrapping at the end of
+    the cycle). The notification can arrive after the actuation: use this
+    timestamp, not the reception time."""
+    monotonic: float
+    """``time.monotonic()`` when the notification is built."""
 
 
 @runtime_checkable

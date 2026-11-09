@@ -97,6 +97,8 @@ def _power_command(**overrides) -> UnderlyingPowerCommand:
         "cycle_duration_sec": 300.0,
         "start_offset_sec": 0.0,
         "is_repeat": False,
+        "cycle_start_monotonic": 1000.0,
+        "monotonic": 1002.5,
     }
     values.update(overrides)
     return UnderlyingPowerCommand(**values)
@@ -169,6 +171,13 @@ def test_dataclasses_are_frozen_and_use_slots(instance) -> None:
         setattr(instance, first_field, "other")
 
 
+def test_power_command_time_fields_are_frozen() -> None:
+    power = _power_command()
+    for name in ("cycle_start_monotonic", "monotonic"):
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            setattr(power, name, 0.0)
+
+
 def test_dataclass_fields() -> None:
     assert [field.name for field in dataclasses.fields(ValveCommand)] == [
         "climate_entity_id",
@@ -193,6 +202,8 @@ def test_dataclass_fields() -> None:
         "cycle_duration_sec",
         "start_offset_sec",
         "is_repeat",
+        "cycle_start_monotonic",
+        "monotonic",
     ]
 
 
@@ -204,6 +215,10 @@ def test_optional_fields_accept_none() -> None:
     power = _power_command(underlying_type="valve", start_offset_sec=None)
     assert power.start_offset_sec is None
     assert power.climate_entity_id is None
+
+    stop = _power_command(kind=PowerCommandKind.STOP, cycle_start_monotonic=None)
+    assert stop.cycle_start_monotonic is None
+    assert stop.monotonic == 1002.5
 
 
 def test_enum_values_are_stable() -> None:
