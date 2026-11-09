@@ -247,7 +247,8 @@ class QuirkFeatureManager(MyFeatureManager):
         current_hvac_mode: str | None,
         command_cause: str | None,
     ) -> None:
-        # Called just before climate.set_hvac_mode is sent to the underlying
+        # Called just before climate.set_hvac_mode is sent to the underlying.
+        # The target mode is the hvac_mode parameter (there is no command object)
         ...
 
     async def async_after_valve_command(self, command: ValveCommand) -> None:
@@ -258,7 +259,10 @@ class QuirkFeatureManager(MyFeatureManager):
             ...
 
     async def async_on_underlying_power(self, command: UnderlyingPowerCommand) -> None:
-        # Called at cycle start, valve update and cycle stop, for each underlying
+        # Called at cycle start, valve update and cycle stop, for each underlying.
+        # The notification can arrive after the actuation: a switch turns on at
+        # command.cycle_start_monotonic + command.start_offset_sec and off
+        # command.on_time_sec later, so use these timestamps, not the reception time
         ...
 ```
 

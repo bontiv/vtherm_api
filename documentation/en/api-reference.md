@@ -451,23 +451,25 @@ Common rules:
 - Called just before `climate.set_hvac_mode` is sent to the underlying climate, while this one is still in `current_hvac_mode`.
 - `command_cause` is `None` for a regular command and `"underlying_tracking"` when the thermostat copies a change made on the device.
 - For an `over_climate` with direct valve control going OFF, this hook is called before the OFF mode is sent, while the climate is still in `current_hvac_mode`. The valve is closed afterwards, by the regulation, with a `ValveCommand` whose `cause` is `REGULATION` and whose `hvac_mode` is `"off"`.
-- A plugin that needs to act before OFF must do it in this hook. To know that the thermostat is off, use `command.hvac_mode` and not the Home Assistant state of the climate, which can still be on.
+- A plugin that needs to act before OFF must do it in this hook. This hook receives no command object: the target mode is its `hvac_mode` parameter (`"off"` here). Use it, and not the Home Assistant state of the climate, which can still be on. `command.hvac_mode` only exists on the `ValveCommand` of `async_after_valve_command`.
 
 `async_after_valve_command`:
 
 - Called after the opening and closing degrees have been sent to a `valve_regulation` underlying.
 - `ValveCommand` carries `climate_entity_id`, `opening_degree_entity_id`, `closing_degree_entity_id` (or `None`), `percent_open` (raw request, 0..100), `opening_degree`, `closing_degree` (or `None`), `hvac_mode` and `cause`.
 - `cause` is `REGULATION` for the regulation cycle, `TURN_OFF` when an underlying is turned off directly or when an inhibition stops, `STARTUP` for the initial state check, and `REPAIR` for a valve that drifted from the requested value or that is resynchronized after an inhibition.
+- To know the mode of the thermostat in this hook, read `command.hvac_mode` of the `ValveCommand` rather than the Home Assistant state of the climate.
 - The valve recalibration and the initial priming of unknown degrees do not call this hook.
 
 `async_on_underlying_power`:
 
-- `UnderlyingPowerCommand` carries `underlying_entity_id`, `underlying_type` (`"switch"`, `"valve"` or `"valve_regulation"`), `climate_entity_id` (the climate driven by a `valve_regulation` underlying, otherwise `None`), `hvac_mode`, `kind`, `requested_on_percent` (clamped to [0, 1]), `applied_on_percent`, `on_time_sec`, `off_time_sec`, `cycle_duration_sec`, `start_offset_sec` (switch only, otherwise `None`) and `is_repeat`.
+- `UnderlyingPowerCommand` carries `underlying_entity_id`, `underlying_type` (`"switch"`, `"valve"` or `"valve_regulation"`), `climate_entity_id` (the climate driven by a `valve_regulation` underlying, otherwise `None`), `hvac_mode`, `kind`, `requested_on_percent` (clamped to [0, 1]), `applied_on_percent`, `on_time_sec`, `off_time_sec`, `cycle_duration_sec`, `start_offset_sec` (switch only, otherwise `None`), `is_repeat`, `cycle_start_monotonic` (`time.monotonic()` at the start of the master cycle the command belongs to, `None` when no cycle is running) and `monotonic` (`time.monotonic()` when the notification is built).
 - `CYCLE_START`: at each cycle start, including the automatic restart (`is_repeat=True`). For a switch, one call per underlying with its `start_offset_sec`.
 - `UPDATE`: at each valve update during a running cycle, even if the value does not change.
-- `STOP`: when a running cycle is cancelled (OFF, load shedding, shutdown). `applied_on_percent` is then 0.
-- The on/off toggles of a switch during the cycle do not trigger a notification: `on_time_sec`, `off_time_sec` and `start_offset_sec` are enough to deduce them.
-- The hook is called after the cycle start has been actuated.
+- `STOP`: when a running cycle is cancelled (OFF, load shedding, shutdown). `applied_on_percent` is then 0 and `cycle_start_monotonic` is `None`, as the cycle is over.
+- `cycle_start_monotonic` is also `None` for an `UPDATE` emitted outside a cycle, like `AppliedCommandReceipt.cycle_start_monotonic`.
+- The on/off toggles of a switch during the cycle do not trigger a notification. A switch turns on at `cycle_start_monotonic + start_offset_sec` and turns off `on_time_sec` later. The cycle is circular: when `start_offset_sec + on_time_sec` exceeds `cycle_duration_sec`, the off time wraps to the beginning of the cycle. These times are nominal, as the minimal activation and deactivation delays of the core can shift a toggle.
+- The hook is called after the cycle start has been actuated, and the core awaits the managers one after the other (up to `UNDERLYING_HOOK_TIMEOUT_SEC` each). A notification can therefore arrive several seconds after the actuation: use `cycle_start_monotonic` and `monotonic`, never the reception time, to synchronize a device.
 - It is distinct from `AppliedCommandReceipt`: the receipt is for the algorithm plugin and describes the whole thermostat, this hook is for feature managers and describes each underlying.
 
 ---
