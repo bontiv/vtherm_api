@@ -17,7 +17,9 @@ from .interfaces import (
     InterfaceThermostatRuntime,
     ValveDiagnosticState,
 )
+from .calibration_modifier import CalibrationOffsetRequest, InterfaceCalibrationOffsetModifier
 from .const import UNDERLYING_HOOK_TIMEOUT_SEC
+from .hvac_mode_mapper import UNSUPPORTED_HVAC_MODE, InterfaceUnderlyingHvacModeMapper
 from .inhibition import InhibitionNotStartedError
 from .log_collector import (
     VThermLogEntry,
@@ -45,10 +47,12 @@ __version__ = "0.9.0"
 
 __all__ = [
     "AppliedCommandReceipt",
+    "CalibrationOffsetRequest",
     "CommandAlteration",
     "CommandReceiptCallback",
     "CommandReceiptKind",
     "InhibitionNotStartedError",
+    "InterfaceCalibrationOffsetModifier",
     "InterfaceCommandReceiptScheduler",
     "InterfaceCycleScheduler",
     "InterfaceFeatureManager",
@@ -59,11 +63,13 @@ __all__ = [
     "InterfaceThermostat",
     "InterfaceThermostatRuntime",
     "InterfaceUnderlyingHvacModeHook",
+    "InterfaceUnderlyingHvacModeMapper",
     "InterfaceUnderlyingPowerHook",
     "InterfaceValveCommandHook",
     "InterfaceValveWriteHook",
     "PowerCommandKind",
     "UNDERLYING_HOOK_TIMEOUT_SEC",
+    "UNSUPPORTED_HVAC_MODE",
     "UnderlyingPowerCommand",
     "ValveCommand",
     "ValveCommandCause",

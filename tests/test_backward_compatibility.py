@@ -341,3 +341,13 @@ def test_valve_command_can_be_built_without_the_new_fields() -> None:
     )
     assert command.requested_opening_degree is None
     assert command.written_by_plugin is False
+
+
+def test_legacy_feature_manager_implements_no_mapper_nor_calibration_modifier() -> None:
+    manager = LegacyFeatureManager()
+    assert isinstance(manager, InterfaceFeatureManager)
+    assert not isinstance(manager, vtherm_api.InterfaceUnderlyingHvacModeMapper)
+    assert not isinstance(manager, vtherm_api.InterfaceCalibrationOffsetModifier)
+    assert not hasattr(manager, "to_underlying_hvac_mode")
+    assert not hasattr(manager, "from_underlying_hvac_mode")
+    assert not hasattr(manager, "adjust_calibration_offset")
