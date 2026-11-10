@@ -11,6 +11,9 @@ This package currently exposes two main building blocks:
 - An optional command-receipt surface: `InterfaceCommandReceiptScheduler` extends `InterfaceCycleScheduler` so that a proportional algorithm plugin can tag a `start_cycle` request with a `request_id` and receive an `AppliedCommandReceipt` describing the command the scheduler really applied. See [the API reference](documentation/en/api-reference.md#command-receipts).
 - An optional regulated-temperature surface: `InterfaceSetpointModifier` lets a feature manager adjust the temperature an `over_climate` thermostat sends to its underlyings. See [the API reference](documentation/en/api-reference.md#regulated-temperature-modifier).
 - Optional underlying-command hooks: `InterfaceUnderlyingHvacModeHook`, `InterfaceValveCommandHook` and `InterfaceUnderlyingPowerHook` let a feature manager follow the HVAC mode, valve and power commands the core sends to the underlyings. See [the API reference](documentation/en/api-reference.md#underlying-hooks).
+- An optional valve-write hook: `InterfaceValveWriteHook` lets a feature manager change the opening degree before the core writes it to a valve-regulation underlying, or write the valve itself. See [the API reference](documentation/en/api-reference.md#valve-write-hook).
+- An optional HVAC-mode translation: `InterfaceUnderlyingHvacModeMapper` lets a feature manager translate the HVAC mode sent to an underlying climate and the one read from it. See [the API reference](documentation/en/api-reference.md#underlying-hvac-mode-mapper).
+- An optional calibration-offset modifier: `InterfaceCalibrationOffsetModifier` lets a feature manager adjust the offset written to the calibration entity of a device. See [the API reference](documentation/en/api-reference.md#calibration-offset-modifier).
 
 The package is designed for Home Assistant integration code, not as a standalone HTTP or REST API.
 

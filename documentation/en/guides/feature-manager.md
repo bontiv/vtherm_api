@@ -267,3 +267,65 @@ class QuirkFeatureManager(MyFeatureManager):
 ```
 
 The core calls a hook only while `is_configured` is `True` and only if its own command is really sent. It waits for the hook, so return quickly and run any long treatment (waiting, retry) in a task or with `async_call_later`. After `UNDERLYING_HOOK_TIMEOUT_SEC` seconds the core stops waiting, logs an error and sends its command. See [Underlying hooks](../api-reference.md#underlying-hooks) for the full contract.
+
+### Changing the valve write
+
+A feature manager can change the opening degree before the core writes it to a `valve_regulation` underlying, or write the valve itself, by implementing `InterfaceValveWriteHook`:
+
+```python
+from vtherm_api import ValveWriteDecision, ValveWriteRequest
+
+
+class ValveFeatureManager(MyFeatureManager):
+    async def async_before_valve_write(self, request: ValveWriteRequest) -> ValveWriteDecision | None:
+        if request.opening_degree == 0:
+            # The plugin closes the valve itself, in a sequence of about 20 seconds
+            self.hass.async_create_task(self._close_valve(request))
+            return ValveWriteDecision(opening_degree=0, handled=True, settle_sec=20.0)
+        # None keeps the value of the core
+        return None
+```
+
+The method is awaited by the core, so start any long sequence in a task. See [Valve write hook](../api-reference.md#valve-write-hook) for the full contract.
+
+### Translating the HVAC mode of a device
+
+A feature manager can translate the HVAC mode sent to an underlying climate, and the one read from it, by implementing `InterfaceUnderlyingHvacModeMapper`:
+
+```python
+from vtherm_api import UNSUPPORTED_HVAC_MODE
+
+
+class ModeFeatureManager(MyFeatureManager):
+    def to_underlying_hvac_mode(self, climate_entity_id: str, hvac_mode: str) -> str | None:
+        # This device wants "auto" to heat. None means no translation
+        return "auto" if hvac_mode == "heat" else None
+
+    def from_underlying_hvac_mode(self, climate_entity_id: str, underlying_hvac_mode: str) -> str | None:
+        if underlying_hvac_mode == "auto":
+            return "heat"
+        if underlying_hvac_mode == "heat":
+            # No VTherm equivalent for this mode of the device
+            return UNSUPPORTED_HVAC_MODE
+        return None
+```
+
+Both methods are plain functions without input or output. The `off` mode is never translated. See [Underlying HVAC mode mapper](../api-reference.md#underlying-hvac-mode-mapper) for the full contract.
+
+### Adjusting the calibration offset
+
+An `over_climate` thermostat in calibration mode writes an offset to the calibration entity of the device. A feature manager can adjust it by implementing `InterfaceCalibrationOffsetModifier`:
+
+```python
+from vtherm_api import CalibrationOffsetRequest
+
+
+class CalibrationFeatureManager(MyFeatureManager):
+    def adjust_calibration_offset(self, request: CalibrationOffsetRequest) -> float | None:
+        # For a device with an inverted sign, compute the offset again
+        # from request.current_offset, local_temperature and room_temperature.
+        # None keeps request.offset
+        return None
+```
+
+The core clamps the result to `min_offset..max_offset`, rounds it to `step` and writes it only if it differs from `current_offset`. See [Calibration offset modifier](../api-reference.md#calibration-offset-modifier) for the full contract.
