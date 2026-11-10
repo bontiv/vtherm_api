@@ -319,3 +319,25 @@ def test_legacy_feature_manager_implements_no_underlying_hook() -> None:
     assert not hasattr(manager, "async_before_underlying_hvac_mode")
     assert not hasattr(manager, "async_after_valve_command")
     assert not hasattr(manager, "async_on_underlying_power")
+
+
+def test_legacy_feature_manager_implements_no_before_write_contract() -> None:
+    manager = LegacyFeatureManager()
+    assert isinstance(manager, InterfaceFeatureManager)
+    assert not isinstance(manager, vtherm_api.InterfaceValveWriteHook)
+    assert not hasattr(manager, "async_before_valve_write")
+
+
+def test_valve_command_can_be_built_without_the_new_fields() -> None:
+    command = vtherm_api.ValveCommand(
+        climate_entity_id="climate.trv",
+        opening_degree_entity_id="number.trv_opening",
+        closing_degree_entity_id=None,
+        percent_open=40,
+        opening_degree=40,
+        closing_degree=None,
+        hvac_mode="heat",
+        cause=vtherm_api.ValveCommandCause.REGULATION,
+    )
+    assert command.requested_opening_degree is None
+    assert command.written_by_plugin is False

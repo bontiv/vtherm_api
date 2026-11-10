@@ -12,7 +12,8 @@ it needs and keeps satisfying :class:`InterfaceFeatureManager`; the core detects
 each capability with ``hasattr`` on the method name.
 
 The hooks are notifications: none of them modifies or cancels the command of
-the core.
+the core. A command can be changed by the dedicated contracts instead, such as
+:class:`InterfaceValveWriteHook` in :mod:`vtherm_api.valve_write`.
 
 Common rules:
 
@@ -51,6 +52,10 @@ Common rules:
 
 * Called after the opening and closing degrees have been sent to a
   ``valve_regulation`` underlying.
+* It is also called when a plugin wrote the valve itself, through
+  :class:`InterfaceValveWriteHook`: the command then holds the final value and
+  ``written_by_plugin`` is True. ``requested_opening_degree`` holds the value
+  computed by the core when a manager changed it, otherwise None.
 * The valve recalibration and the initial priming of unknown degrees do not
   call this hook.
 
@@ -125,6 +130,10 @@ class ValveCommand:
     hvac_mode: str
     """VTherm HVAC mode when the command is sent."""
     cause: ValveCommandCause
+    requested_opening_degree: int | None = None
+    """Opening degree computed by the core, when a manager changed it, otherwise None."""
+    written_by_plugin: bool = False
+    """True when a plugin wrote the valve itself (``ValveWriteDecision.handled``)."""
 
 
 class PowerCommandKind(StrEnum):

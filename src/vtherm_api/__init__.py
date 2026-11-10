@@ -38,6 +38,7 @@ from .underlying_hooks import (
     ValveCommand,
     ValveCommandCause,
 )
+from .valve_write import InterfaceValveWriteHook, ValveWriteDecision, ValveWriteRequest
 from .vtherm_api import VThermAPI
 
 __version__ = "0.9.0"
@@ -60,12 +61,15 @@ __all__ = [
     "InterfaceUnderlyingHvacModeHook",
     "InterfaceUnderlyingPowerHook",
     "InterfaceValveCommandHook",
+    "InterfaceValveWriteHook",
     "PowerCommandKind",
     "UNDERLYING_HOOK_TIMEOUT_SEC",
     "UnderlyingPowerCommand",
     "ValveCommand",
     "ValveCommandCause",
     "ValveDiagnosticState",
+    "ValveWriteDecision",
+    "ValveWriteRequest",
     "PluginClimate",
     "VThermAPI",
     "VThermLogEntry",

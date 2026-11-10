@@ -188,6 +188,8 @@ def test_dataclass_fields() -> None:
         "closing_degree",
         "hvac_mode",
         "cause",
+        "requested_opening_degree",
+        "written_by_plugin",
     ]
     assert [field.name for field in dataclasses.fields(UnderlyingPowerCommand)] == [
         "underlying_entity_id",
@@ -205,6 +207,18 @@ def test_dataclass_fields() -> None:
         "cycle_start_monotonic",
         "monotonic",
     ]
+
+
+def test_valve_command_plugin_fields_have_defaults() -> None:
+    command = _valve_command()
+    assert command.requested_opening_degree is None
+    assert command.written_by_plugin is False
+
+    written = _valve_command(opening_degree=0, requested_opening_degree=12, written_by_plugin=True)
+    assert written.requested_opening_degree == 12
+    assert written.written_by_plugin is True
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        written.written_by_plugin = False  # type: ignore[misc]
 
 
 def test_optional_fields_accept_none() -> None:
