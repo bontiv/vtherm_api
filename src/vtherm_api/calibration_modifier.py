@@ -15,7 +15,8 @@ capability with ``hasattr(manager, "adjust_calibration_offset")``.
 Rules of the contract:
 
 * The core calls the method only on a feature manager whose ``is_configured``
-  is True, in the order the managers were registered.
+  is True, in the order of the names of their factories (alphabetical), as
+  returned by ``VThermAPI.get_feature_manager_factories()``.
 * The method is called by ``synchronize_device_temperature`` of an
   ``over_climate`` thermostat, only in calibration mode
   (``sync_with_calibration``), after the offset has been computed and before it

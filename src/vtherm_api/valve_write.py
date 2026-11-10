@@ -17,7 +17,8 @@ the core.
 Rules of the contract:
 
 * The core calls the method only on a feature manager whose ``is_configured``
-  is True, in the order the managers were registered.
+  is True, in the order of the names of their factories (alphabetical), as
+  returned by ``VThermAPI.get_feature_manager_factories()``.
 * The method is called by ``send_percent_open`` of a ``valve_regulation``
   underlying, for every cause, after the opening and closing degrees have been
   computed and before they are written. It is not called for the valve

@@ -14,7 +14,8 @@ capability with ``hasattr`` on the method names.
 Rules of the contract:
 
 * The core calls the methods only on a feature manager whose ``is_configured``
-  is True, in the order the managers were registered.
+  is True, in the order of the names of their factories (alphabetical), as
+  returned by ``VThermAPI.get_feature_manager_factories()``.
 * The methods are plain functions, not coroutines, and do no input or output:
   they are called from properties and at each state change of the device.
 * ``to_underlying_hvac_mode`` receives a VTherm HVAC mode and returns the mode

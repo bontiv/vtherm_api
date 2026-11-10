@@ -509,7 +509,7 @@ An optional extension of the feature manager contract that lets a plugin change 
 
 Rules:
 
-- The core calls the method on a feature manager whose `is_configured` is `True`, in the order of registration.
+- The core calls the method on a feature manager whose `is_configured` is `True`, in the order of the names of their factories (alphabetical), as returned by `get_feature_manager_factories()`.
 - The call is made by `send_percent_open` of a `valve_regulation` underlying, for every cause, after the degrees are computed and before they are written. It is not made for the recalibration, for the initial priming of unknown degrees, nor when the inhibition gate blocks the write. `over_valve` is not covered.
 - The method is a coroutine awaited by the core, which stops waiting after `UNDERLYING_HOOK_TIMEOUT_SEC` seconds. A long sequence runs in a background task of the plugin.
 - The managers form a chain: each one receives in `opening_degree` the value left by the previous one.
@@ -534,7 +534,7 @@ An optional extension of the feature manager contract that lets a plugin transla
 
 Rules:
 
-- The core calls the methods on a feature manager whose `is_configured` is `True`, in the order of registration.
+- The core calls the methods on a feature manager whose `is_configured` is `True`, in the order of the names of their factories (alphabetical), as returned by `get_feature_manager_factories()`.
 - The methods are plain functions and do no input or output: they are called from properties and at each state change of the device.
 - `to_underlying_hvac_mode` returns the mode to send to the device for a VTherm mode. `from_underlying_hvac_mode` returns the VTherm mode for a mode of the device.
 - `None` means no translation. The core keeps the first result that is not `None` and logs a warning when two managers translate differently.
@@ -572,7 +572,7 @@ An optional extension of the feature manager contract that lets a plugin adjust 
 
 Rules:
 
-- The core calls the method on a feature manager whose `is_configured` is `True`, in the order of registration.
+- The core calls the method on a feature manager whose `is_configured` is `True`, in the order of the names of their factories (alphabetical), as returned by `get_feature_manager_factories()`.
 - The call is made by `synchronize_device_temperature` of an `over_climate` thermostat, only in calibration mode (`sync_with_calibration`), after the offset is computed and before it is compared with `current_offset`.
 - The method is a plain function and does no input or output.
 - The managers form a chain: each one receives in `offset` the value left by the previous one. Returning `None` keeps the value.
