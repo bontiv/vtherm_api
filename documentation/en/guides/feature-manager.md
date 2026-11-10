@@ -288,30 +288,6 @@ class ValveFeatureManager(MyFeatureManager):
 
 The method is awaited by the core, so start any long sequence in a task. See [Valve write hook](../api-reference.md#valve-write-hook) for the full contract.
 
-### Translating the HVAC mode of a device
-
-A feature manager can translate the HVAC mode sent to an underlying climate, and the one read from it, by implementing `InterfaceUnderlyingHvacModeMapper`:
-
-```python
-from vtherm_api import UNSUPPORTED_HVAC_MODE
-
-
-class ModeFeatureManager(MyFeatureManager):
-    def to_underlying_hvac_mode(self, climate_entity_id: str, hvac_mode: str) -> str | None:
-        # This device wants "auto" to heat. None means no translation
-        return "auto" if hvac_mode == "heat" else None
-
-    def from_underlying_hvac_mode(self, climate_entity_id: str, underlying_hvac_mode: str) -> str | None:
-        if underlying_hvac_mode == "auto":
-            return "heat"
-        if underlying_hvac_mode == "heat":
-            # No VTherm equivalent for this mode of the device
-            return UNSUPPORTED_HVAC_MODE
-        return None
-```
-
-Both methods are plain functions without input or output. The `off` mode is never translated. See [Underlying HVAC mode mapper](../api-reference.md#underlying-hvac-mode-mapper) for the full contract.
-
 ### Adjusting the calibration offset
 
 An `over_climate` thermostat in calibration mode writes an offset to the calibration entity of the device. A feature manager can adjust it by implementing `InterfaceCalibrationOffsetModifier`:

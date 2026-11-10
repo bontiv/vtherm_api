@@ -521,29 +521,6 @@ Rules:
 - `async_after_valve_command` is called in all cases, with the final value. `ValveCommand.requested_opening_degree` is the value of the core when a manager changed it, otherwise `None`. `ValveCommand.written_by_plugin` is `True` when a plugin wrote the valve.
 - An exception, an invalid value or a timeout is logged, and the core goes on with the value it had before that manager.
 
-### Underlying HVAC mode mapper
-
-Module `vtherm_api.hvac_mode_mapper`, names re-exported from `vtherm_api`.
-
-An optional extension of the feature manager contract that lets a plugin translate the HVAC mode sent to an underlying climate, and the one read from it, for a device that names its modes differently. `InterfaceFeatureManager` is unchanged, and the core detects the capability with `hasattr` on the method names.
-
-| Name                                | Kind             | Members                                                                                                                                                     |
-| ----------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `InterfaceUnderlyingHvacModeMapper` | runtime protocol | `to_underlying_hvac_mode(climate_entity_id, hvac_mode) -> str \| None`, `from_underlying_hvac_mode(climate_entity_id, underlying_hvac_mode) -> str \| None` |
-| `UNSUPPORTED_HVAC_MODE`             | constant         | `""`                                                                                                                                                        |
-
-Rules:
-
-- The core calls the methods on a feature manager whose `is_configured` is `True`, in the order of the names of their factories (alphabetical), as returned by `get_feature_manager_factories()`.
-- The methods are plain functions and do no input or output: they are called from properties and at each state change of the device.
-- `to_underlying_hvac_mode` returns the mode to send to the device for a VTherm mode. `from_underlying_hvac_mode` returns the VTherm mode for a mode of the device.
-- `None` means no translation. The core keeps the first result that is not `None` and logs a warning when two managers translate differently.
-- `off` is never translated: the core ignores a translation from or to `off`.
-- `UNSUPPORTED_HVAC_MODE`, returned by `from_underlying_hvac_mode`, marks a device mode with no VTherm equivalent. The core removes it from the list of modes, treats it as a drift in the repair, and ignores it when it follows the changes of the device.
-- The core calls the methods when it sends a mode (`set_hvac_mode` and its short-circuit), in the `hvac_mode` and `hvac_modes` properties, in `check_and_repair`, `check_initial_state` and when the device changes.
-- `async_before_underlying_hvac_mode` receives the mode really sent to the device, and `current_hvac_mode` stays the raw state of the device.
-- An exception or an invalid value is logged, and the core goes on without translation.
-
 ### Calibration offset modifier
 
 Module `vtherm_api.calibration_modifier`, names re-exported from `vtherm_api`.
