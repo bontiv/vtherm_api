@@ -15,8 +15,8 @@ def _package_metadata_version() -> str:
     return distribution("vtherm_api").version
 
 
-def test_package_version_is_0_9_0() -> None:
-    assert vtherm_api.__version__ == "0.9.0"
+def test_package_version_is_0_10_0() -> None:
+    assert vtherm_api.__version__ == "0.10.0"
 
 
 def test_package_exports_algorithm_plugin_api() -> None:
@@ -38,6 +38,13 @@ def test_package_exports_algorithm_plugin_api() -> None:
     assert vtherm_api.ValveCommandCause is not None
     assert vtherm_api.UnderlyingPowerCommand is not None
     assert vtherm_api.PowerCommandKind is not None
+    assert vtherm_api.InterfaceValveWriteHook is not None
+    assert vtherm_api.ValveWriteRequest is not None
+    assert vtherm_api.ValveWriteDecision is not None
+    assert vtherm_api.InterfaceUnderlyingHvacModeMapper is not None
+    assert vtherm_api.InterfaceCalibrationOffsetModifier is not None
+    assert vtherm_api.CalibrationOffsetRequest is not None
+    assert vtherm_api.UNSUPPORTED_HVAC_MODE == ""
     assert vtherm_api.UNDERLYING_HOOK_TIMEOUT_SEC == 10
     assert vtherm_api.AppliedCommandReceipt is not None
     assert vtherm_api.CommandReceiptKind is not None

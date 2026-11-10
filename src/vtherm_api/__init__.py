@@ -43,7 +43,7 @@ from .underlying_hooks import (
 from .valve_write import InterfaceValveWriteHook, ValveWriteDecision, ValveWriteRequest
 from .vtherm_api import VThermAPI
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 __all__ = [
     "AppliedCommandReceipt",
