@@ -243,6 +243,7 @@ def test_enum_values_are_stable() -> None:
         "TURN_OFF": "turn_off",
         "STARTUP": "startup",
         "REPAIR": "repair",
+        "RECALIBRATION": "recalibration",
     }
     assert {kind.name: kind.value for kind in PowerCommandKind} == {
         "CYCLE_START": "cycle_start",

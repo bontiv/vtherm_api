@@ -22,8 +22,10 @@ Rules of the contract:
 * The method is called by ``send_percent_open`` of a ``valve_regulation``
   underlying, for every cause, after the opening and closing degrees have been
   computed and before they are written. It is not called for the valve
-  recalibration, for the initial priming of unknown degrees, nor when the
-  inhibition gate blocks the write. ``over_valve`` underlyings are not covered.
+  recalibration (which must travel the whole stroke, a plugin cannot change or
+  take over these writes; the plugin follows them in
+  ``async_after_valve_command`` with ``cause=RECALIBRATION``), for the initial
+  priming of unknown degrees, nor when the inhibition gate blocks the write. ``over_valve`` underlyings are not covered.
 * The method is a coroutine awaited by the core, which cuts the call after
   ``UNDERLYING_HOOK_TIMEOUT_SEC`` seconds. A long sequence must be run in a
   background task of the plugin.

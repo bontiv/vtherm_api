@@ -431,7 +431,7 @@ Three optional extensions of the feature manager contract that let a plugin foll
 | `InterfaceValveCommandHook`       | runtime protocol | `async_after_valve_command(command: ValveCommand) -> None`                                               |
 | `InterfaceUnderlyingPowerHook`    | runtime protocol | `async_on_underlying_power(command: UnderlyingPowerCommand) -> None`                                     |
 | `ValveCommand`                    | frozen dataclass | valve command really sent to a `valve_regulation` underlying                                             |
-| `ValveCommandCause`               | `StrEnum`        | `REGULATION`, `TURN_OFF`, `STARTUP`, `REPAIR`                                                            |
+| `ValveCommandCause`               | `StrEnum`        | `REGULATION`, `TURN_OFF`, `STARTUP`, `REPAIR`, `RECALIBRATION`                                             |
 | `UnderlyingPowerCommand`          | frozen dataclass | power requested from and applied to one underlying                                                       |
 | `PowerCommandKind`                | `StrEnum`        | `CYCLE_START`, `UPDATE`, `STOP`                                                                          |
 | `UNDERLYING_HOOK_TIMEOUT_SEC`     | constant         | `10`                                                                                                     |
@@ -457,9 +457,11 @@ Common rules:
 
 - Called after the opening and closing degrees have been sent to a `valve_regulation` underlying.
 - `ValveCommand` carries `climate_entity_id`, `opening_degree_entity_id`, `closing_degree_entity_id` (or `None`), `percent_open` (raw request, 0..100), `opening_degree`, `closing_degree` (or `None`), `hvac_mode`, `cause`, `requested_opening_degree` (the value of the core when a manager changed it through `InterfaceValveWriteHook`, otherwise `None`) and `written_by_plugin` (`True` when a plugin wrote the valve itself).
-- `cause` is `REGULATION` for the regulation cycle, `TURN_OFF` when an underlying is turned off directly or when an inhibition stops, `STARTUP` for the initial state check, and `REPAIR` for a valve that drifted from the requested value or that is resynchronized after an inhibition.
+- `cause` is `REGULATION` for the regulation cycle, `TURN_OFF` when an underlying is turned off directly or when an inhibition stops, `STARTUP` for the initial state check, and `REPAIR` for a valve that drifted from the requested value or that is resynchronized after an inhibition, and `RECALIBRATION` for a valve forced to a full opening or a full closing by the valve recalibration of the core.
 - To know the mode of the thermostat in this hook, read `command.hvac_mode` of the `ValveCommand` rather than the Home Assistant state of the climate.
-- The valve recalibration and the initial priming of unknown degrees do not call this hook.
+- The hook is called after each forced write of the valve recalibration, with `cause=RECALIBRATION`. `opening_degree` and `closing_degree` are the values forced on the entities (`closing_degree` is `None` when the thermostat has no closing entity), `percent_open` is 100 for the full opening and 0 for the full closing, `written_by_plugin` is `False` and `requested_opening_degree` is `None`.
+- The initial priming of unknown degrees does not call this hook.
+- `async_before_valve_write` is not called for the recalibration: it must travel the whole stroke, so a plugin cannot change or take over these writes. A plugin that owns a companion entity (for example a closing degree the thermostat does not drive) aligns it in `async_after_valve_command`.
 - The hook is also called when a plugin wrote the valve itself, with the final value.
 
 `async_on_underlying_power`:
@@ -510,7 +512,7 @@ An optional extension of the feature manager contract that lets a plugin change 
 Rules:
 
 - The core calls the method on a feature manager whose `is_configured` is `True`, in the order of the names of their factories (alphabetical), as returned by `get_feature_manager_factories()`.
-- The call is made by `send_percent_open` of a `valve_regulation` underlying, for every cause, after the degrees are computed and before they are written. It is not made for the recalibration, for the initial priming of unknown degrees, nor when the inhibition gate blocks the write. `over_valve` is not covered.
+- The call is made by `send_percent_open` of a `valve_regulation` underlying, for every cause, after the degrees are computed and before they are written. It is not made for the recalibration (see `async_after_valve_command`, called with `cause=RECALIBRATION`), for the initial priming of unknown degrees, nor when the inhibition gate blocks the write. `over_valve` is not covered.
 - The method is a coroutine awaited by the core, which stops waiting after `UNDERLYING_HOOK_TIMEOUT_SEC` seconds. A long sequence runs in a background task of the plugin.
 - The managers form a chain: each one receives in `opening_degree` the value left by the previous one.
 - Returning `None` or an empty decision leaves the value unchanged.

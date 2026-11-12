@@ -56,8 +56,17 @@ Common rules:
   :class:`InterfaceValveWriteHook`: the command then holds the final value and
   ``written_by_plugin`` is True. ``requested_opening_degree`` holds the value
   computed by the core when a manager changed it, otherwise None.
-* The valve recalibration and the initial priming of unknown degrees do not
-  call this hook.
+* It is also called after each forced write of the valve recalibration, with
+  ``cause`` set to ``RECALIBRATION``. ``opening_degree`` and ``closing_degree``
+  are the values forced on the entities (``closing_degree`` is None when the
+  VTherm has no closing entity), ``percent_open`` is 100 for the full opening
+  and 0 for the full closing, ``written_by_plugin`` is False and
+  ``requested_opening_degree`` is None.
+* The initial priming of unknown degrees does not call this hook.
+* ``async_before_valve_write`` is not called for the recalibration: it must
+  travel the whole stroke, so a plugin can neither change nor take over these
+  writes. A plugin that owns a companion entity (for example a closing degree
+  the VTherm does not drive) aligns it in this hook.
 
 ``async_on_underlying_power``:
 
@@ -112,6 +121,10 @@ class ValveCommandCause(StrEnum):
     REPAIR = "repair"
     """Command sent to repair a valve that drifted from the requested value,
     or to resynchronize after an inhibition."""
+
+    RECALIBRATION = "recalibration"
+    """Valve forced to a full opening or a full closing by the valve
+    recalibration of the core."""
 
 
 @dataclass(frozen=True, slots=True)
