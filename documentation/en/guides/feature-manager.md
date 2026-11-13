@@ -236,7 +236,7 @@ The core calls the method only while `is_configured` is `True`, after the self-r
 A feature manager can follow the commands the core sends to the underlyings by implementing one or more optional hooks. The hooks are notifications: they never change or cancel the command. Each one is a coroutine, so implement only the ones you need:
 
 ```python
-from vtherm_api import UnderlyingPowerCommand, ValveCommand
+from vtherm_api import UnderlyingPowerCommand, ValveCommand, ValveCommandCause
 
 
 class QuirkFeatureManager(MyFeatureManager):
@@ -255,6 +255,9 @@ class QuirkFeatureManager(MyFeatureManager):
         # Called after the opening and closing degrees have been sent.
         # When the thermostat goes OFF, the valve is closed after the OFF mode,
         # with cause REGULATION and hvac_mode "off".
+        if command.cause == ValveCommandCause.RECALIBRATION:
+            # Forced full opening or closing, not a regulation value
+            return
         if command.hvac_mode == "off":
             ...
 
@@ -266,27 +269,37 @@ class QuirkFeatureManager(MyFeatureManager):
         ...
 ```
 
-The core calls a hook only while `is_configured` is `True` and only if its own command is really sent. It waits for the hook, so return quickly and run any long treatment (waiting, retry) in a task or with `async_call_later`. After `UNDERLYING_HOOK_TIMEOUT_SEC` seconds the core stops waiting, logs an error and sends its command. See [Underlying hooks](../api-reference.md#underlying-hooks) for the full contract.
+The core calls a hook only while `is_configured` is `True` and only if the command is really sent (by the core, or by a plugin that took a valve write over). New causes can appear in a minor version, like `RECALIBRATION` in 0.10.0, so ignore the ones you do not handle rather than fail on them. It waits for the hook, so return quickly and run any long treatment (waiting, retry) in a task or with `async_call_later`. After `UNDERLYING_HOOK_TIMEOUT_SEC` seconds the core stops waiting, logs an error and sends its command. See [Underlying hooks](../api-reference.md#underlying-hooks) for the full contract.
 
 ### Changing the valve write
 
 A feature manager can change the opening degree before the core writes it to a `valve_regulation` underlying, or write the valve itself, by implementing `InterfaceValveWriteHook`:
 
 ```python
-from vtherm_api import ValveWriteDecision, ValveWriteRequest
+from vtherm_api import ValveCommand, ValveCommandCause, ValveWriteDecision, ValveWriteRequest
 
 
 class ValveFeatureManager(MyFeatureManager):
+    _last_opening: int | None = None
+
     async def async_before_valve_write(self, request: ValveWriteRequest) -> ValveWriteDecision | None:
-        if request.opening_degree == 0:
-            # The plugin closes the valve itself, in a sequence of about 20 seconds
+        # The core can send 0 again at each regulation cycle: run the sequence only
+        # when the valve goes to 0, or when the core repairs a valve that drifted
+        if request.opening_degree == 0 and (self._last_opening != 0 or request.cause == ValveCommandCause.REPAIR):
+            # The plugin closes the valve itself, in a sequence of about 20 seconds.
+            # Never write the valve in this method: start a task and return at once
             self.hass.async_create_task(self._close_valve(request))
             return ValveWriteDecision(opening_degree=0, handled=True, settle_sec=20.0)
         # None keeps the value of the core
         return None
+
+    async def async_after_valve_command(self, command: ValveCommand) -> None:
+        # Called with the final value, also when the plugin wrote the valve itself
+        if command.cause != ValveCommandCause.RECALIBRATION:
+            self._last_opening = command.opening_degree
 ```
 
-The method is awaited by the core, so start any long sequence in a task. See [Valve write hook](../api-reference.md#valve-write-hook) for the full contract.
+The method is awaited by the core, so start any long sequence in a task: if the method itself is still writing when `UNDERLYING_HOOK_TIMEOUT_SEC` expires, the core cancels it and writes its own value. With `handled=True` the plugin also owns the closing degree, which the core neither writes nor repairs. See [Valve write hook](../api-reference.md#valve-write-hook) for the full contract.
 
 ### Adjusting the calibration offset
 

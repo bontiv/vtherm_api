@@ -119,6 +119,13 @@ def test_decision_fields_and_defaults() -> None:
     assert decision.settle_sec is None
 
 
+def test_decision_accepts_a_float_opening_degree() -> None:
+    # The core rounds the value: a linearisation can return a float
+    types = {field.name: field.type for field in dataclasses.fields(ValveWriteDecision)}
+    assert types["opening_degree"] == "float | None"
+    assert ValveWriteDecision(opening_degree=42.5).opening_degree == 42.5
+
+
 @pytest.mark.asyncio
 async def test_manager_receives_the_request_passed_by_the_core() -> None:
     manager = ClosingFeatureManager()

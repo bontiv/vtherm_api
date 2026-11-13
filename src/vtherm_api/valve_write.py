@@ -25,33 +25,42 @@ Rules of the contract:
   recalibration (which must travel the whole stroke, a plugin cannot change or
   take over these writes; the plugin follows them in
   ``async_after_valve_command`` with ``cause=RECALIBRATION``), for the initial
-  priming of unknown degrees, nor when the inhibition gate blocks the write. ``over_valve`` underlyings are not covered.
-* The method is a coroutine awaited by the core, which cuts the call after
-  ``UNDERLYING_HOOK_TIMEOUT_SEC`` seconds. A long sequence must be run in a
-  background task of the plugin.
+  priming of unknown degrees, nor when the inhibition gate blocks the write.
+  ``over_valve`` underlyings are not covered.
+* The method is a coroutine awaited by the core, which cancels the call after
+  ``UNDERLYING_HOOK_TIMEOUT_SEC`` seconds and then writes the value it had
+  before that manager. The method must therefore not write the valve itself:
+  a plugin that takes the write over starts its sequence in a background task
+  and returns its decision at once. Otherwise a write cut by the timeout races
+  with the write of the core.
 * The managers form a chain. Each one receives in ``opening_degree`` the value
   left by the previous one; the first one receives the value of the core, which
   is also in ``requested_opening_degree``.
 * Returning ``None`` or an empty :class:`ValveWriteDecision` leaves the value
   unchanged.
 * ``ValveWriteDecision.opening_degree`` is the value proposed to the next
-  manager. The core clamps it to ``0..max_opening_degree`` and rounds it to an
-  integer.
+  manager. It can be a float: the core rounds it to an integer and clamps it to
+  ``0..max_opening_degree``.
 * ``ValveWriteDecision.handled=True`` means the plugin writes the valve itself.
   The chain stops and the core writes neither the opening nor the closing
   degree. ``opening_degree``, when given, is the value the valve will end at,
-  otherwise it is the proposed value.
+  otherwise it is the proposed value. The plugin is then responsible for the
+  closing degree too: the core does not check nor repair it after such a write.
 * After the chain, the final value becomes the last value sent to the
-  underlying, with the time of the command. When there is a closing degree
-  entity and the core writes, it writes ``max_opening_degree`` minus the final
-  value.
-* The core does not repair the valve before ``settle_sec`` seconds after the
-  decision. ``settle_sec`` defaults to the resend delay of the core (2 seconds).
-  A plugin running a longer sequence announces its duration with it.
+  underlying. When the core writes and there is a closing degree entity, it
+  writes ``100`` minus the final value, like the closing degree it computes.
+* ``settle_sec`` is the time the core waits after the decision before it
+  repairs the valve. It is taken into account with or without ``handled``. When
+  several managers give one, the largest is kept. ``None`` keeps the resend
+  delay of the core. A negative or non-finite value is ignored. There is no
+  upper bound: a plugin must announce the real duration of its sequence, not a
+  larger one, or a drifted valve stays unrepaired for that long.
+* A repair goes through this method again, with the cause ``REPAIR``.
 * :meth:`InterfaceValveCommandHook.async_after_valve_command` is called in all
   cases, with the final value. ``ValveCommand.requested_opening_degree`` then
-  holds the value of the core when a manager changed it, and
-  ``ValveCommand.written_by_plugin`` is True when a plugin wrote the valve.
+  holds the value of the core when the final value differs from it (otherwise
+  None), and ``ValveCommand.written_by_plugin`` is True when a plugin wrote the
+  valve.
 * An exception, an invalid value or a timeout is logged, and the core goes on
   with the value it had before that manager.
 """
@@ -88,12 +97,14 @@ class ValveWriteRequest:
 class ValveWriteDecision:
     """Answer of a feature manager to a :class:`ValveWriteRequest`."""
 
-    opening_degree: int | None = None
-    """New proposed opening degree, None to leave the value unchanged."""
+    opening_degree: float | None = None
+    """New proposed opening degree, None to leave the value unchanged.
+    The core rounds it to an integer and clamps it to ``0..max_opening_degree``."""
     handled: bool = False
     """True when the plugin writes the valve itself: the core writes nothing."""
     settle_sec: float | None = None
-    """Time the core waits before repairing the valve, None for its resend delay."""
+    """Time the core waits before repairing the valve, None for its resend delay.
+    Applies with or without ``handled``; the largest value of the chain is kept."""
 
 
 @runtime_checkable
