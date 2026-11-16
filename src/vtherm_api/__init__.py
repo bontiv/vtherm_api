@@ -39,10 +39,11 @@ from .underlying_hooks import (
     ValveCommand,
     ValveCommandCause,
 )
+from .ui_plugin import UiPlugin
 from .valve_write import InterfaceValveWriteHook, ValveWriteDecision, ValveWriteRequest
 from .vtherm_api import VThermAPI
 
-__version__ = "0.10.0"
+__version__ = "0.11.0"
 
 __all__ = [
     "AppliedCommandReceipt",
@@ -74,6 +75,7 @@ __all__ = [
     "ValveWriteDecision",
     "ValveWriteRequest",
     "PluginClimate",
+    "UiPlugin",
     "VThermAPI",
     "VThermLogEntry",
     "VThermLogHandler",

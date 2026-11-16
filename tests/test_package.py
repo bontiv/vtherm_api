@@ -15,8 +15,8 @@ def _package_metadata_version() -> str:
     return distribution("vtherm_api").version
 
 
-def test_package_version_is_0_10_0() -> None:
-    assert vtherm_api.__version__ == "0.10.0"
+def test_package_version_is_0_11_0() -> None:
+    assert vtherm_api.__version__ == "0.11.0"
 
 
 def test_package_exports_algorithm_plugin_api() -> None:
@@ -54,4 +54,5 @@ def test_package_exports_algorithm_plugin_api() -> None:
     assert vtherm_api.get_vtherm_logger is not None
     assert vtherm_api.write_event_log is not None
     assert vtherm_api.async_export_logs is not None
+    assert vtherm_api.UiPlugin is not None
     assert vtherm_api.__version__ == _package_metadata_version()

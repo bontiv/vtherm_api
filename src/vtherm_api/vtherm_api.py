@@ -7,6 +7,7 @@ from homeassistant.components.climate import ClimateEntity, DOMAIN as CLIMATE_DO
 from .const import DOMAIN, VTHERM_API_NAME, NowClass
 from .log_collector import get_vtherm_logger
 from .plugin_climate import PluginClimate
+from .ui_plugin import ERROR_ALREADY_REGISTERED, UiPlugin, build_ui_plugin
 from .interfaces import (
     InterfaceFeatureManager,
     InterfaceFeatureManagerFactory,
@@ -17,7 +18,7 @@ from .interfaces import (
 _LOGGER = get_vtherm_logger(__name__)
 
 
-class VThermAPI:
+class VThermAPI:  # pylint: disable=too-many-public-methods  # the public facade of the package, one method per operation
     """The VThermAPI
     This class is a singleton that provides access to the VTherm API instance through HA hass mecanism.
     It also provides a reference to the HA instance for use in the API implementation.
@@ -32,6 +33,8 @@ class VThermAPI:
                                             InterfacePropAlgorithmFactory] = {}
         self._feature_manager_registry: dict[str,
                                              InterfaceFeatureManagerFactory] = {}
+        # The order of insertion of the dict is the order of registration.
+        self._ui_plugin_registry: dict[str, UiPlugin] = {}
 
     @classmethod
     def get_vtherm_api(cls, hass=None):
@@ -64,6 +67,7 @@ class VThermAPI:
         if api is not None:
             api._prop_algorithm_registry.clear()  # pylint: disable=protected-access
             api._feature_manager_registry.clear()  # pylint: disable=protected-access
+            api._ui_plugin_registry.clear()  # pylint: disable=protected-access
 
         # Remove the API instance from hass.data
         if DOMAIN in cls._hass.data:
@@ -143,6 +147,59 @@ class VThermAPI:
             self._feature_manager_registry[name]
             for name in sorted(self._feature_manager_registry)
         ]
+
+    def register_ui_plugin(  # pylint: disable=too-many-arguments  # the signature is fixed by the dashboard
+        self,
+        plugin_id: str,
+        js_url: str,
+        dashboard_version: str,
+        *,
+        requires: list[str] | tuple[str, ...] | None = None,
+        load_after: list[str] | tuple[str, ...] | None = None,
+        load_before: list[str] | tuple[str, ...] | None = None,
+    ) -> None:
+        """Declare a UI plugin of the Versatile Thermostat dashboard.
+
+        The registry is passive: it checks the structure of the declaration
+        and the uniqueness of its identifier. It does not check the URL, the
+        version constraint, the reserved identifiers ``core`` and ``core_*``
+        nor the dependencies: the dashboard does, when it builds the list of
+        plugins to load. Call it from the event loop, for example in
+        ``async_setup_entry``.
+
+        Raises:
+            ValueError: A field is missing or has the wrong type, or a plugin
+                with the same identifier is already registered. Nothing is
+                registered and the existing plugin is kept.
+        """
+        plugin = build_ui_plugin(
+            plugin_id,
+            js_url,
+            dashboard_version,
+            requires=requires,
+            load_after=load_after,
+            load_before=load_before,
+        )
+        if plugin.id in self._ui_plugin_registry:
+            raise ValueError(ERROR_ALREADY_REGISTERED.format(plugin_id=plugin.id))
+
+        self._ui_plugin_registry[plugin.id] = plugin
+        _LOGGER.debug("%s - UI plugin %s registered with %s", self, plugin.id, plugin.js_url)
+
+    def unregister_ui_plugin(self, plugin_id: str) -> None:
+        """Remove a UI plugin. An unknown identifier is ignored."""
+        if not isinstance(plugin_id, str):
+            return
+        if self._ui_plugin_registry.pop(plugin_id.strip(), None) is not None:
+            _LOGGER.debug("%s - UI plugin %s unregistered", self, plugin_id.strip())
+
+    def get_ui_plugins(self) -> list[UiPlugin]:
+        """Return the registered UI plugins, in registration order.
+
+        The order is not a load order: a plugin that requires another one can
+        come first. The returned list is a new list on each call.
+        """
+        return list(self._ui_plugin_registry.values())
 
     async def set_inhibition(
         self,
