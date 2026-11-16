@@ -17,7 +17,7 @@ Get or create the singleton instance.
 
 #### `VThermAPI.reset_vtherm_api() -> None`
 
-Reset the singleton and clear the proportional-algorithm and feature-manager factory registries.
+Reset the singleton and clear the proportional-algorithm, feature-manager and UI plugin registries.
 Mainly useful in tests.
 
 ### Properties
@@ -70,6 +70,92 @@ Return registered feature manager factory names in sorted order.
 
 Return the registered feature manager factories, sorted by name.
 The core iterates over these factories when building a thermostat to instantiate one feature manager per eligible thermostat.
+
+### UI plugin registry
+
+A UI plugin is an integration that adds screens to the
+[Versatile Thermostat dashboard](https://github.com/bontiv/vtherm_dashboard). It declares itself here and serves a
+JavaScript module that the dashboard loads. The guide for plugin authors (JavaScript side, load order, plugin status
+page) is the dashboard's [Python API for UI plugins](https://github.com/bontiv/vtherm_dashboard/blob/main/docs/plugins/python-api.md).
+
+The registry is **passive**. It checks the structure of a declaration and the uniqueness of its identifier, and keeps
+the declarations in registration order. It does not sort the plugins, and it does not check the URL, the version
+constraint, the identifiers `core` and `core_*` reserved for the native plugins of the dashboard, or the dependencies.
+The dashboard does that each time it builds the list of plugins to load. Call these methods from the Home Assistant
+event loop, for example in `async_setup_entry` and `async_unload_entry`. The registry is independent of the
+proportional-algorithm and feature-manager registries.
+
+<!-- example: ui-plugin-registry -->
+```python
+from vtherm_api import VThermAPI
+
+PLUGIN_ID = "my_plugin"
+
+
+async def async_setup_entry(hass, entry) -> bool:
+    # Serve /my_plugin_static/my-plugin.js with a static path of your integration first.
+    VThermAPI.get_vtherm_api(hass).register_ui_plugin(
+        PLUGIN_ID,
+        "/my_plugin_static/my-plugin.js",
+        ">=1.0,<2.0",
+        requires=["core"],
+        load_after=["core_tpi"],
+    )
+    return True
+
+
+async def async_unload_entry(hass, entry) -> bool:
+    VThermAPI.get_vtherm_api(hass).unregister_ui_plugin(PLUGIN_ID)
+    return True
+```
+
+#### `register_ui_plugin(plugin_id: str, js_url: str, dashboard_version: str, *, requires=None, load_after=None, load_before=None) -> None`
+
+Declare a UI plugin.
+
+| Parameter           | Type                         | Meaning                                                                                                              |
+| ------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `plugin_id`         | `str`                        | Unique identifier. Surrounding spaces are removed.                                                                   |
+| `js_url`            | `str`                        | URL of the JavaScript module, kept as given. The dashboard only loads a path of the instance that starts with `/`.   |
+| `dashboard_version` | `str`                        | Versions of the dashboard that the plugin supports, for example `">=1.0,<2.0"`, kept as given.                      |
+| `requires`          | `list[str] \| tuple \| None` | Plugins that must be present. Surrounding spaces of each identifier are removed.                                     |
+| `load_after`        | `list[str] \| tuple \| None` | Plugins to load before this one when they are present.                                                               |
+| `load_before`       | `list[str] \| tuple \| None` | Plugins to load after this one when they are present.                                                                |
+
+Raises `ValueError` in these cases. Nothing is registered, and an existing plugin is kept.
+
+| Cause                                                                                              | Message                                                                       |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `plugin_id`, `js_url` or `dashboard_version` is not a string, or is empty after removing spaces     | `The UI plugin field '<name>' is required and must be a non-empty string`     |
+| `requires`, `load_after` or `load_before` is not `None`, a list or a tuple (a single string is refused) | `The UI plugin field '<name>' must be a list of plugin identifiers`           |
+| An item of `requires`, `load_after` or `load_before` is not a string, or is empty after removing spaces | `The UI plugin field '<name>' must only contain non-empty strings, got <value>` (the `repr()` of the item) |
+| A plugin with the same identifier is already registered                                            | `A UI plugin with the identifier '<id>' is already registered`                |
+
+#### `unregister_ui_plugin(plugin_id: str) -> None`
+
+Remove a UI plugin. Surrounding spaces are removed. An unknown identifier, or a value that is not a string, is
+ignored. A removed identifier can be registered again; it then comes last in `get_ui_plugins()`.
+
+#### `get_ui_plugins() -> list[UiPlugin]`
+
+Return the registered UI plugins in registration order, or an empty list. The order is not a load order: a plugin
+that requires another one can come first. Each call returns a new list.
+
+#### `UiPlugin`
+
+**Module**: `vtherm_api.ui_plugin`, exported by `vtherm_api`.
+
+Immutable dataclass (`frozen=True`) that compares by value. Its constructor does not validate: `register_ui_plugin`
+does.
+
+| Field               | Type              | Default |
+| ------------------- | ----------------- | ------- |
+| `id`                | `str`             | none    |
+| `js_url`            | `str`             | none    |
+| `dashboard_version` | `str`             | none    |
+| `requires`          | `tuple[str, ...]` | `()`    |
+| `load_after`        | `tuple[str, ...]` | `()`    |
+| `load_before`       | `tuple[str, ...]` | `()`    |
 
 #### `await set_inhibition(vtherm_entity_id: str, stop_underlyings: bool) -> None`
 

@@ -38,6 +38,7 @@ The package is designed for Home Assistant integration code, not as a standalone
     - [Register the manager through VThermAPI](#register-the-manager-through-vthermapi)
     - [Minimal thermostat side contract](#minimal-thermostat-side-contract)
   - [Registering a FeatureManager factory (per-thermostat)](#registering-a-featuremanager-factory-per-thermostat)
+  - [Registering a dashboard UI plugin](#registering-a-dashboard-ui-plugin)
   - [Using PluginClimate](#using-pluginclimate)
     - [What happens when you link it](#what-happens-when-you-link-it)
     - [Basic usage](#basic-usage)
@@ -133,6 +134,7 @@ from vtherm_api import (
     InterfacePropAlgorithmHandler,
     InterfaceThermostatRuntime,
     PluginClimate,
+    UiPlugin,
     VThermAPI,
 )
 from vtherm_api.const import DOMAIN, EventType
@@ -149,6 +151,7 @@ from vtherm_api.const import DOMAIN, EventType
 - expose a timezone-aware `api.now`
 - register and unregister proportional algorithm factories
 - register feature managers on compatible VTherm entities
+- register and unregister the UI plugins of the Versatile Thermostat dashboard
 - optionally link a plugin climate entity to a VTherm climate entity
 
 ### Create or retrieve the singleton
@@ -452,6 +455,44 @@ The registry exposes:
 - `get_feature_manager_factories()` — used by the core to iterate over the registered factories when constructing a thermostat.
 
 To drive an underlying climate fan from the manager, `InterfaceThermostatRuntime` exposes `regulated_target_temperature`, `underlying_fan_modes`, and `async_set_underlying_fan_mode(fan_mode)`.
+
+## Registering a dashboard UI plugin
+
+An integration can add screens to the [Versatile Thermostat dashboard](https://github.com/bontiv/vtherm_dashboard).
+It declares a UI plugin in `VThermAPI` and serves the JavaScript module that the dashboard loads. The registry is
+passive: it checks the structure of the declaration and the uniqueness of its identifier, and keeps the declarations
+in registration order. The dashboard sorts the plugins, checks their URL, version constraint and dependencies, and
+shows the outcome in its plugin status page.
+
+```python
+from vtherm_api import VThermAPI
+
+PLUGIN_ID = "my_plugin"
+
+
+async def async_setup_entry(hass, entry) -> bool:
+    # Serve /my_plugin_static/my-plugin.js with a static path of your integration first.
+    VThermAPI.get_vtherm_api(hass).register_ui_plugin(
+        PLUGIN_ID,
+        "/my_plugin_static/my-plugin.js",
+        ">=1.0,<2.0",  # versions of the dashboard that the plugin supports
+        requires=["core"],
+    )
+    return True
+
+
+async def async_unload_entry(hass, entry) -> bool:
+    VThermAPI.get_vtherm_api(hass).unregister_ui_plugin(PLUGIN_ID)
+    return True
+```
+
+- `register_ui_plugin(...)` raises `ValueError` for a missing field, a wrong type or an identifier that is already registered.
+- `unregister_ui_plugin(plugin_id)` ignores an unknown identifier.
+- `get_ui_plugins()` returns the declarations (`UiPlugin`) in registration order.
+
+The methods and their errors are in the [API reference](documentation/en/api-reference.md#ui-plugin-registry). The guide
+for plugin authors, with the JavaScript side and the load order, is the dashboard's
+[Python API for UI plugins](https://github.com/bontiv/vtherm_dashboard/blob/main/docs/plugins/python-api.md).
 
 ## Using PluginClimate
 
