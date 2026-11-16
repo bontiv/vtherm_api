@@ -167,10 +167,16 @@ class VThermAPI:  # pylint: disable=too-many-public-methods  # the public facade
         plugins to load. Call it from the event loop, for example in
         ``async_setup_entry``.
 
+        Registering again a declaration equal to the registered one does
+        nothing, so ``async_setup_entry`` can run again (setup retry, several
+        config entries) without unregistering first. The plugin keeps its
+        place in the registration order.
+
         Raises:
-            ValueError: A field is missing or has the wrong type, or a plugin
-                with the same identifier is already registered. Nothing is
-                registered and the existing plugin is kept.
+            ValueError: A field is missing or has the wrong type, or a
+                different plugin with the same identifier is already
+                registered. Nothing is registered and the existing plugin is
+                kept.
         """
         plugin = build_ui_plugin(
             plugin_id,
@@ -180,7 +186,13 @@ class VThermAPI:  # pylint: disable=too-many-public-methods  # the public facade
             load_after=load_after,
             load_before=load_before,
         )
-        if plugin.id in self._ui_plugin_registry:
+        registered = self._ui_plugin_registry.get(plugin.id)
+        if registered == plugin:
+            # Home Assistant can run async_setup_entry again without
+            # async_unload_entry (setup retry, one call per config entry).
+            _LOGGER.debug("%s - UI plugin %s already registered with the same declaration", self, plugin.id)
+            return
+        if registered is not None:
             raise ValueError(ERROR_ALREADY_REGISTERED.format(plugin_id=plugin.id))
 
         self._ui_plugin_registry[plugin.id] = plugin

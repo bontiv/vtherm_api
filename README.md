@@ -486,7 +486,7 @@ async def async_unload_entry(hass, entry) -> bool:
     return True
 ```
 
-- `register_ui_plugin(...)` raises `ValueError` for a missing field, a wrong type or an identifier that is already registered.
+- `register_ui_plugin(...)` raises `ValueError` for a missing field, a wrong type or an identifier already registered with a different declaration. Registering the same declaration again does nothing, so a setup retry or a second config entry is safe.
 - `unregister_ui_plugin(plugin_id)` ignores an unknown identifier.
 - `get_ui_plugins()` returns the declarations (`UiPlugin`) in registration order.
 

@@ -187,7 +187,47 @@ def test_a_duplicate_is_detected_after_stripping(api: VThermAPI) -> None:
     api.register_ui_plugin("a", "/a.js", ">=1.0")
 
     with pytest.raises(ValueError, match="identifier 'a' is already registered"):
-        api.register_ui_plugin(" a ", "/a.js", ">=1.0")
+        api.register_ui_plugin(" a ", "/other.js", ">=1.0")
+
+
+@pytest.mark.parametrize(
+    "keywords",
+    [
+        {"dashboard_version": ">=2.0"},
+        {"requires": ["core"]},
+        {"load_after": ["core"]},
+        {"load_before": ["core"]},
+    ],
+)
+def test_a_duplicate_with_any_different_field_is_refused(api: VThermAPI, keywords) -> None:
+    api.register_ui_plugin("a", "/a.js", ">=1.0")
+    arguments = {"plugin_id": "a", "js_url": "/a.js", "dashboard_version": ">=1.0", **keywords}
+
+    with pytest.raises(ValueError, match="identifier 'a' is already registered"):
+        api.register_ui_plugin(**arguments)
+
+    assert api.get_ui_plugins() == [UiPlugin(id="a", js_url="/a.js", dashboard_version=">=1.0")]
+
+
+def test_the_same_declaration_registered_again_is_accepted_and_keeps_its_place(api: VThermAPI) -> None:
+    """Home Assistant can run async_setup_entry again without async_unload_entry: setup retry, several config entries."""
+    api.register_ui_plugin("a", "/a.js", ">=1.0", requires=["core"])
+    api.register_ui_plugin("b", "/b.js", ">=1.0")
+
+    api.register_ui_plugin(" a ", "/a.js", ">=1.0", requires=(" core ",))
+
+    assert [plugin.id for plugin in api.get_ui_plugins()] == ["a", "b"]
+
+
+@pytest.mark.asyncio
+async def test_the_documented_example_survives_a_setup_retry(hass) -> None:
+    namespace: dict = {}
+    exec(compile(_documented_example(), str(API_REFERENCE), "exec"), namespace)  # pylint: disable=exec-used
+
+    assert await namespace["async_setup_entry"](hass, None)
+    assert await namespace["async_setup_entry"](hass, None)
+
+    assert [plugin.id for plugin in VThermAPI.get_vtherm_api(hass).get_ui_plugins()] == ["my_plugin"]
 
 
 def test_the_registry_is_passive(api: VThermAPI) -> None:

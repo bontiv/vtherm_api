@@ -71,6 +71,57 @@ Return registered feature manager factory names in sorted order.
 Return the registered feature manager factories, sorted by name.
 The core iterates over these factories when building a thermostat to instantiate one feature manager per eligible thermostat.
 
+#### `await set_inhibition(vtherm_entity_id: str, stop_underlyings: bool) -> None`
+
+Ask the targeted VTherm core to enter inhibition. `stop_underlyings` authorizes
+only the optional physical entry stop; the core independently closes its command
+gate, resolves the effective HVAC state, and suspends normal control.
+
+Raises `LookupError` when no climate entity matches `vtherm_entity_id`, `TypeError`
+when the matched entity does not implement the updated core operations or when
+`stop_underlyings` is not a boolean, and `ValueError` for an empty entity ID.
+
+Raises `InhibitionNotStartedError` while the VTherm has not restored its
+inhibition state at startup; nothing is changed (see `is_inhibition_started`).
+
+#### `await unset_inhibition(vtherm_entity_id: str) -> None`
+
+Ask the targeted VTherm core to leave inhibition. Plugins call this only after
+they confirm their own `INACTIVE` state. The core performs the exit
+reconciliation and opens its command gate only when that operation succeeds.
+
+Raises `InhibitionNotStartedError` while the VTherm has not restored its
+inhibition state at startup; nothing is changed. Other errors are raised like
+`set_inhibition`, plus the core's error when the exit reconciliation fails.
+
+#### `is_inhibition_started(vtherm_entity_id: str) -> bool`
+
+Return `True` once the targeted VTherm accepts `set_inhibition` and
+`unset_inhibition`. A VTherm restores its inhibition state at the very
+beginning of its startup; before that, both operations raise
+`InhibitionNotStartedError`. A plugin checks this before calling, and checks
+again later (for example at the VTherm's next state change) while it is
+`False`. A core that does not expose this state accepts the operations at any
+time and is reported started. Raises like `set_inhibition` when the target is
+missing or does not support inhibition.
+
+#### `link_to_vtherm(vtherm, plugin_vtherm_entity_id: str) -> None`
+
+Search the Home Assistant climate component for a plugin climate entity matching `plugin_vtherm_entity_id`, then call `plugin.link_to_vtherm(vtherm)`.
+
+This helper is only useful when your plugin climate is itself an HA climate entity.
+For many integrations, direct linking through `PluginClimate.link_to_vtherm(...)` is simpler.
+
+#### `register_manager(manager: InterfaceFeatureManager) -> None`
+
+Register a feature manager across VTherm thermostat entities found in the Home Assistant climate component.
+
+Only entities implementing `InterfaceThermostat` and exposing `device_info["model"] == DOMAIN` receive the manager.
+
+#### `_set_now(now: datetime) -> None`
+
+Testing helper that overrides the value returned by `api.now`.
+
 ### UI plugin registry
 
 A UI plugin is an integration that adds screens to the
@@ -122,6 +173,10 @@ Declare a UI plugin.
 | `load_after`        | `list[str] \| tuple \| None` | Plugins to load before this one when they are present.                                                               |
 | `load_before`       | `list[str] \| tuple \| None` | Plugins to load after this one when they are present.                                                                |
 
+Registering again a declaration equal to the registered one (same identifier after removing spaces, same URL,
+version constraint and dependencies) does nothing: `async_setup_entry` can run again, after a setup retry or for each
+config entry of the integration, without unregistering first. The plugin keeps its place in `get_ui_plugins()`.
+
 Raises `ValueError` in these cases. Nothing is registered, and an existing plugin is kept.
 
 | Cause                                                                                              | Message                                                                       |
@@ -129,7 +184,7 @@ Raises `ValueError` in these cases. Nothing is registered, and an existing plugi
 | `plugin_id`, `js_url` or `dashboard_version` is not a string, or is empty after removing spaces     | `The UI plugin field '<name>' is required and must be a non-empty string`     |
 | `requires`, `load_after` or `load_before` is not `None`, a list or a tuple (a single string is refused) | `The UI plugin field '<name>' must be a list of plugin identifiers`           |
 | An item of `requires`, `load_after` or `load_before` is not a string, or is empty after removing spaces | `The UI plugin field '<name>' must only contain non-empty strings, got <value>` (the `repr()` of the item) |
-| A plugin with the same identifier is already registered                                            | `A UI plugin with the identifier '<id>' is already registered`                |
+| A different plugin with the same identifier is already registered                                  | `A UI plugin with the identifier '<id>' is already registered`                |
 
 #### `unregister_ui_plugin(plugin_id: str) -> None`
 
@@ -156,57 +211,6 @@ does.
 | `requires`          | `tuple[str, ...]` | `()`    |
 | `load_after`        | `tuple[str, ...]` | `()`    |
 | `load_before`       | `tuple[str, ...]` | `()`    |
-
-#### `await set_inhibition(vtherm_entity_id: str, stop_underlyings: bool) -> None`
-
-Ask the targeted VTherm core to enter inhibition. `stop_underlyings` authorizes
-only the optional physical entry stop; the core independently closes its command
-gate, resolves the effective HVAC state, and suspends normal control.
-
-Raises `LookupError` when no climate entity matches `vtherm_entity_id`, `TypeError`
-when the matched entity does not implement the updated core operations or when
-`stop_underlyings` is not a boolean, and `ValueError` for an empty entity ID.
-
-Raises `InhibitionNotStartedError` while the VTherm has not restored its
-inhibition state at startup; nothing is changed (see `is_inhibition_started`).
-
-#### `await unset_inhibition(vtherm_entity_id: str) -> None`
-
-Ask the targeted VTherm core to leave inhibition. Plugins call this only after
-they confirm their own `INACTIVE` state. The core performs the exit
-reconciliation and opens its command gate only when that operation succeeds.
-
-Raises `InhibitionNotStartedError` while the VTherm has not restored its
-inhibition state at startup; nothing is changed. Other errors are raised like
-`set_inhibition`, plus the core's error when the exit reconciliation fails.
-
-#### `is_inhibition_started(vtherm_entity_id: str) -> bool`
-
-Return `True` once the targeted VTherm accepts `set_inhibition` and
-`unset_inhibition`. A VTherm restores its inhibition state at the very
-beginning of its startup; before that, both operations raise
-`InhibitionNotStartedError`. A plugin checks this before calling, and checks
-again later (for example at the VTherm's next state change) while it is
-`False`. A core that does not expose this state accepts the operations at any
-time and is reported started. Raises like `set_inhibition` when the target is
-missing or does not support inhibition.
-
-#### `link_to_vtherm(vtherm, plugin_vtherm_entity_id: str) -> None`
-
-Search the Home Assistant climate component for a plugin climate entity matching `plugin_vtherm_entity_id`, then call `plugin.link_to_vtherm(vtherm)`.
-
-This helper is only useful when your plugin climate is itself an HA climate entity.
-For many integrations, direct linking through `PluginClimate.link_to_vtherm(...)` is simpler.
-
-#### `register_manager(manager: InterfaceFeatureManager) -> None`
-
-Register a feature manager across VTherm thermostat entities found in the Home Assistant climate component.
-
-Only entities implementing `InterfaceThermostat` and exposing `device_info["model"] == DOMAIN` receive the manager.
-
-#### `_set_now(now: datetime) -> None`
-
-Testing helper that overrides the value returned by `api.now`.
 
 ---
 
