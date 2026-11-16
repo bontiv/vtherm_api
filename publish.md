@@ -1,7 +1,7 @@
 # Publication sur PyPI
 
 La publication est automatisée par le workflow GitHub Actions
-[release.yml](.github/workflows/release.yml) : un push de tag `v…` construit les
+[release.yml](.github/workflows/release.yml) : un push de tag de version construit les
 distributions, vérifie que le tag correspond à leur version, publie sur PyPI via *Trusted Publishing*,
 puis crée la release GitHub avec ses notes. La procédure manuelle historique
 reste décrite en fin de document comme solution de secours.
@@ -31,9 +31,9 @@ job de publication.
 
 ### 3. Protection des tags de release
 
-Seuls les tags commençant par `v` déclenchent une release. Créer un *tag
-ruleset* (*Settings > Rules > Rulesets > New tag ruleset*) ciblant le motif
-`v*`, avec les règles *Restrict creations*, *Restrict updates* et *Restrict
+Seuls les tags de forme `x.y.z…` ou `vx.y.z…` déclenchent une release. Créer
+un *tag ruleset* (*Settings > Rules > Rulesets > New tag ruleset*) ciblant les
+motifs `[0-9]*` et `v[0-9]*`, avec les règles *Restrict creations*, *Restrict updates* et *Restrict
 deletions*, et n'autoriser en *Bypass list* que les mainteneurs habilités à
 publier. Les autres tags restent libres et ne publient rien.
 
@@ -43,14 +43,14 @@ publier. Les autres tags restent libres et ne publient rien.
    [src/vtherm_api/__init__.py](src/vtherm_api/__init__.py) (`pyproject.toml`
    la lit dynamiquement), committer et pousser sur `main`. La version ne doit
    jamais réutiliser une version déjà publiée sur PyPI (versions immuables).
-2. **Taguer** avec `v` suivi exactement de la valeur de `__version__` (un tag
-   sans `v` ne déclenche pas le workflow) :
+2. **Taguer** avec la valeur de `__version__` :
 
-   > `git tag v1.2.3 && git push origin v1.2.3`
+   > `git tag 1.2.3 && git push origin 1.2.3`
 
-   Le tag doit reprendre la forme normalisée PEP 440 de la version, celle des
-   noms de fichiers construits : `v1.2.3rc1` et non `v1.2.3-rc.1`. Les
-   préversions (`a`, `b`, `rc`, `.dev`) sont marquées *pre-release* sur GitHub.
+   Le tag est comparé à la version après normalisation PEP 440 : `1.2.3b1`,
+   `1.2.3beta1`, `1.2.3-beta.1` ou `v1.2.3b1` désignent la même version. Les
+   préversions (alpha, beta, rc, dev) sont marquées *pre-release* sur GitHub.
+   Un tag qui ne commence pas par `x.y.z` ou `vx.y.z` ne déclenche rien.
 3. **Contrôler le workflow** dans l'onglet Actions :
    - job `validate` : absence de release GitHub existante pour ce tag,
      construction, `twine check` et accord du tag avec la version construite ;

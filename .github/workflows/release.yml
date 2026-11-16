@@ -1,11 +1,13 @@
 name: Release
 
-# Only tags starting with "v" trigger a release, so a tag ruleset on "v*" can
-# restrict who may create them. Other tags are ignored.
+# Only version-like tags trigger a release ("1.2.3", "1.2.3b1", "v1.2.3"...), so a
+# tag ruleset on the same patterns can restrict who may create them. Other tags
+# are ignored.
 on:
   push:
     tags:
-      - "v*"
+      - "[0-9]+.[0-9]+.[0-9]+*"
+      - "v[0-9]+.[0-9]+.[0-9]+*"
 
 permissions:
   contents: read
@@ -31,7 +33,7 @@ jobs:
           python-version: "3.14"
 
       - name: Install tooling
-        run: python -m pip install --upgrade pip build twine
+        run: python -m pip install --upgrade pip build twine packaging
 
       # Fail before any PyPI upload: the github-release job could not create it.
       - name: Check that the tag has no GitHub release yet
@@ -51,20 +53,18 @@ jobs:
       - name: Check distributions
         run: python -m twine check dist/*
 
-      # The built files are named after __version__: the tag must be "v" followed
-      # by that exact normalized version, e.g. v1.2.3 or v1.2.3rc1.
+      # The built files are named after the normalized __version__. The tag is
+      # normalized the same way (PEP 440), so "1.2.3beta1", "1.2.3-beta.1" and
+      # "v1.2.3b1" all match a 1.2.3b1 build.
       - name: Check that the tag matches the built version
         id: validate
         run: |
-          version="${RELEASE_TAG#v}"
+          parsed=$(python -c 'import sys; from packaging.version import Version; v = Version(sys.argv[1]); print(v, str(v.is_prerelease).lower())' "$RELEASE_TAG") \
+            || { echo "::error::Tag $RELEASE_TAG is not a valid PEP 440 version."; exit 1; }
+          read -r version prerelease <<< "$parsed"
           if ! ls dist/vtherm_api-"$version"-*.whl dist/vtherm_api-"$version".tar.gz >/dev/null 2>&1; then
-            echo "::error::Tag $RELEASE_TAG does not match the built version: $(ls dist | tr '\n' ' ')"
+            echo "::error::Tag $RELEASE_TAG (version $version) does not match the built version: $(ls dist | tr '\n' ' ')"
             exit 1
-          fi
-          if [[ "$version" =~ (a|b|rc)[0-9]+|\.dev[0-9]+ ]]; then
-            prerelease=true
-          else
-            prerelease=false
           fi
           echo "Version $version, pre-release: $prerelease"
           echo "version=$version" >> "$GITHUB_OUTPUT"
