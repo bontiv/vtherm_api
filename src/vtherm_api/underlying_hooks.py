@@ -12,7 +12,8 @@ it needs and keeps satisfying :class:`InterfaceFeatureManager`; the core detects
 each capability with ``hasattr`` on the method name.
 
 The hooks are notifications: none of them modifies or cancels the command of
-the core.
+the core. A command can be changed by the dedicated contracts instead, such as
+:class:`InterfaceValveWriteHook` in :mod:`vtherm_api.valve_write`.
 
 Common rules:
 
@@ -25,9 +26,14 @@ Common rules:
   ``UNDERLYING_HOOK_TIMEOUT_SEC`` seconds (10, exported by ``const.py``).
 * An exception or a timeout is logged and never prevents the command of the
   core.
-* A hook is called only if the command of the core is really sent. It is not
-  called if the inhibition gate blocks the command, if the requested mode is
-  already in place or if the load shedding refuses to switch on.
+* A hook is called only if the command is really sent, by the core or, for a
+  valve, by a plugin that took the write over through
+  :class:`InterfaceValveWriteHook`. It is not called if the inhibition gate
+  blocks the command, if the requested mode is already in place or if the load
+  shedding refuses to switch on.
+* New enum values can be added in a minor version (``RECALIBRATION`` came in
+  0.10.0). A hook must accept a ``cause`` or a ``kind`` it does not know, for
+  example by ignoring it, rather than fail on it.
 * HVAC modes are passed as ``str``, like ``vtherm_hvac_mode`` in
   :class:`InterfaceThermostatRuntime`.
 
@@ -51,8 +57,23 @@ Common rules:
 
 * Called after the opening and closing degrees have been sent to a
   ``valve_regulation`` underlying.
-* The valve recalibration and the initial priming of unknown degrees do not
-  call this hook.
+* It is also called when a plugin wrote the valve itself, through
+  :class:`InterfaceValveWriteHook`: the command then holds the final value and
+  ``written_by_plugin`` is True. ``requested_opening_degree`` holds the value
+  computed by the core when the final value differs from it, otherwise None.
+* Since 0.10.0, it is also called after each forced write of the valve
+  recalibration, which did not call it in 0.9.0. A plugin that tracks the
+  regulation must filter these commands on ``cause``. It is called with
+  ``cause`` set to ``RECALIBRATION``. ``opening_degree`` and ``closing_degree``
+  are the values forced on the entities (``closing_degree`` is None when the
+  VTherm has no closing entity), ``percent_open`` is 100 for the full opening
+  and 0 for the full closing, ``written_by_plugin`` is False and
+  ``requested_opening_degree`` is None.
+* The initial priming of unknown degrees does not call this hook.
+* ``async_before_valve_write`` is not called for the recalibration: it must
+  travel the whole stroke, so a plugin can neither change nor take over these
+  writes. A plugin that owns a companion entity (for example a closing degree
+  the VTherm does not drive) aligns it in this hook.
 
 ``async_on_underlying_power``:
 
@@ -108,6 +129,10 @@ class ValveCommandCause(StrEnum):
     """Command sent to repair a valve that drifted from the requested value,
     or to resynchronize after an inhibition."""
 
+    RECALIBRATION = "recalibration"
+    """Valve forced to a full opening or a full closing by the valve
+    recalibration of the core. New in 0.10.0."""
+
 
 @dataclass(frozen=True, slots=True)
 class ValveCommand:
@@ -125,6 +150,10 @@ class ValveCommand:
     hvac_mode: str
     """VTherm HVAC mode when the command is sent."""
     cause: ValveCommandCause
+    requested_opening_degree: int | None = None
+    """Opening degree computed by the core, when the final value differs from it, otherwise None."""
+    written_by_plugin: bool = False
+    """True when a plugin wrote the valve itself (``ValveWriteDecision.handled``)."""
 
 
 class PowerCommandKind(StrEnum):

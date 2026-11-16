@@ -38,6 +38,11 @@ def test_package_exports_algorithm_plugin_api() -> None:
     assert vtherm_api.ValveCommandCause is not None
     assert vtherm_api.UnderlyingPowerCommand is not None
     assert vtherm_api.PowerCommandKind is not None
+    assert vtherm_api.InterfaceValveWriteHook is not None
+    assert vtherm_api.ValveWriteRequest is not None
+    assert vtherm_api.ValveWriteDecision is not None
+    assert vtherm_api.InterfaceCalibrationOffsetModifier is not None
+    assert vtherm_api.CalibrationOffsetRequest is not None
     assert vtherm_api.UNDERLYING_HOOK_TIMEOUT_SEC == 10
     assert vtherm_api.AppliedCommandReceipt is not None
     assert vtherm_api.CommandReceiptKind is not None
